@@ -9,19 +9,19 @@ from matplotlib import figure
 arr = numpy.array
 
 BATCHSIZE = 128
-VALIDSIZE = 10000
-BATCHES = 10000
+VALIDSIZE = 100000
+BATCHES = 5000
 NDIM = 2
 
 neural_f = \
   models.ICNN \
   ( dim_data=NDIM
-  , dim_hidden=[16, 16, 16, 16]
+  , dim_hidden=[32, 32, 32, 32]
   )
 
 neural_g = \
   models.MLP \
-  ( dim_hidden=[16, 16, 16, 16]
+  ( dim_hidden=[32, 32, 32, 32]
   , is_potential=False
   )
 
@@ -85,12 +85,13 @@ print("done training")
 validsrc = next(iters[2])
 validtarg = next(iters[3])
 validtrans = learned_potentials.transport(validsrc)
+validinv = learned_potentials.transport(validtarg, forward=False)
 
-fig , _ = learned_potentials.plot_ot_map(validsrc, validtarg, forward=True)
-fig.savefig("fwd.png")
+# fig , _ = learned_potentials.plot_ot_map(validsrc, validtarg, forward=True)
+# fig.savefig("fwd.png")
 
-fig , _ = learned_potentials.plot_ot_map(validsrc, validtarg, forward=False)
-fig.savefig("bkwd.png")
+# fig , _ = learned_potentials.plot_ot_map(validsrc, validtarg, forward=False)
+# fig.savefig("bkwd.png")
 
 
 for i in range(NDIM):
@@ -106,3 +107,16 @@ for i in range(NDIM):
   fig.legend()
 
   fig.savefig("comp%02d.png" % i)
+
+  fig = figure.Figure((6, 6))
+  ax = fig.add_subplot(111)
+
+  ax.hist \
+    ( [validsrc[:,i], validtarg[:,i], validinv[:,i]]
+    , bins=25
+    , label=["src", "targ", "transinv"]
+    )
+
+  fig.legend()
+
+  fig.savefig("compinv%02d.png" % i)
