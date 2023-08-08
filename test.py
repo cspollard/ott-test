@@ -1,5 +1,7 @@
+import jax.nn as nn
 import jax.random as random
 import jax.numpy as numpy
+import einops
 import optax
 from ott.solvers.nn import models, neuraldual
 from matplotlib import figure
@@ -7,7 +9,7 @@ from matplotlib import figure
 arr = numpy.array
 
 BATCHSIZE = 128
-VALIDSIZE = 1000
+VALIDSIZE = 10000
 BATCHES = 10000
 NDIM = 2
 
@@ -44,29 +46,36 @@ neural_dual_solver = \
   )
 
 
-def iternormal(knext, batchsize, mu, chol):
+def iternormal(knext, batchsize):
   while 1:
     k , knext = random.split(knext)
-    yield random.multivariate_normal(k, mu, chol, (batchsize,))
+    yield random.normal(k, (batchsize, NDIM))
 
   return
 
 
-musource = arr([0, 0])
-cholsource = arr([[1, 0], [0, 1]])
+def itertarget(knext, batchsize, mu, chol):
+  while 1:
+    k , knext = random.split(knext)
+    k1 , knext = random.split(knext)
+    proc = random.bernoulli(k1, shape=(batchsize,))
+    samps = random.multivariate_normal(k, mu, chol, (batchsize,))
+    yield samps + einops.repeat(proc, "h -> h 2")*arr([5, 6])
+    # yield random.multivariate_normal(k, mu, chol, (batchsize,))
+
+  return
+
+
+ksource , ktarg , kvalidsrc , kvalidtarg = random.split(random.PRNGKey(0), 4)
+
 mutarget = arr([-1, -2])
 choltarget = arr([[2, 3], [0, 4]])
 
 iters = \
-  tuple \
-  ( map \
-    ( iternormal
-    , random.split(random.PRNGKey(0), 4)
-    , [ BATCHSIZE ] * 2 + [ VALIDSIZE ] * 2
-    , [ musource , mutarget ] * 2
-    , [ cholsource , choltarget ] * 2
-    ,
-    )
+  ( iternormal(ksource, BATCHSIZE)
+  , itertarget(ktarg, BATCHSIZE, mutarget, choltarget)
+  , iternormal(kvalidsrc, VALIDSIZE)
+  , itertarget(kvalidtarg, VALIDSIZE, mutarget, choltarget)
   )
 
 print("training")
